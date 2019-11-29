@@ -1,0 +1,81 @@
+version: "3"
+
+volumes:
+  local_postgres_data: {}
+  local_postgres_data_backups: {}
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/src
+      - ./config/nginx:/etc/nginx/conf.d
+    depends_on:
+      - web
+
+  web:
+    build:
+      context: .
+      dockerfile: compose/django/Dockerfile
+    container_name: django_web
+    depends_on:
+      - db
+    volumes:
+      - ./src:/src
+    expose:
+      - "8000"
+    links:
+      - redis
+    env_file:
+      - ./.envs/.django
+    command: ["sh", "-c", "python manage.py collectstatic --no-input; python manage.py migrate; gunicorn mydjango.wsgi -b 0.0.0.0:8000"]
+
+  calery_w:
+    build:
+      context: .
+      dockerfile: compose/django/Dockerfile
+    container_name: cel_worker
+    depends_on:
+      - redis
+    volumes:
+      - ./src:/src
+    expose:
+      - "8000"
+    env_file:
+      - ./.envs/.django
+    command : ["sh", "-c", "celery worker --app=myapp.tasks"]
+
+  calery_b:
+    build:
+      context: .
+      dockerfile: compose/django/Dockerfile
+    container_name: cel_beat
+    depends_on:
+      - redis
+    volumes:
+      - ./src:/src
+    expose:
+      - "8000"
+    env_file:
+      - ./.envs/.django
+    command : ["sh", "-c", "celery beat --app=myapp.tasks"]
+
+  db:
+    build:
+      context: .
+      dockerfile: compose/postgres/Dockerfile
+    container_name: postgresql
+    env_file:
+      - ./.envs/.postgres
+    volumes:
+      - local_postgres_data:/var/lib/postgresql/data
+      - local_postgres_data_backups:/backups
+
+  redis:
+    image: redis:3.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"

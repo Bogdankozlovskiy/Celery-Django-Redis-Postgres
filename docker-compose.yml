@@ -31,7 +31,7 @@ services:
       - redis
     env_file:
       - ./.envs/.django
-    command: ["sh", "-c", "python manage.py collectstatic --no-input; python manage.py migrate; gunicorn mydjango.wsgi -b 0.0.0.0:8000"]
+    command: ["sh", "-c", "python3 manage.py collectstatic --no-input; python3 manage.py makemigrations; python3 manage.py migrate; gunicorn mydjango.wsgi -b 0.0.0.0:8000"]
 
   calery_w:
     build:
@@ -73,6 +73,12 @@ services:
     volumes:
       - local_postgres_data:/var/lib/postgresql/data
       - local_postgres_data_backups:/backups
+
+  adminer:
+    image: adminer
+    container_name: admin_db
+    ports:
+      - 8080:8080
 
   redis:
     image: redis:3.2-alpine
